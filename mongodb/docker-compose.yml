@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  mongo1:
+    image: mongo:7.0
+    container_name: mongo-primary
+    ports:
+      - "27017:27017"
+    command: mongod --replSet rs0 --bind_ip_all
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: adminpass
+    volumes:
+      - mongo1-data:/data/db
+      - ./scripts:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    networks:
+      - services-network
+
+  mongo2:
+    image: mongo:7.0
+    container_name: mongo-secondary
+    ports:
+      - "27018:27017"
+    command: mongod --replSet rs0 --bind_ip_all
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: adminpass
+    volumes:
+      - mongo2-data:/data/db
+    restart: unless-stopped
+    networks:
+      - services-network
+
+  mongo3:
+    image: mongo:7.0
+    container_name: mongo-arbiter
+    ports:
+      - "27019:27017"
+    command: mongod --replSet rs0 --bind_ip_all
+    environment:
+      MONGO_INITDB_ROOT_PASSWORD: adminpass
+    volumes:
+      - mongo3-data:/data/db
+    restart: unless-stopped
+    networks:
+      - services-network
+
+volumes:
+  mongo1-data:
+  mongo2-data:
+  mongo3-data:
+  mongo-config:
+
+networks:
+  services-network:
+    driver: bridge

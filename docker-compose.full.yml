@@ -1,0 +1,110 @@
+version: '3.8'
+
+# Main Docker Compose file that orchestrates all services
+# Including NATS, Redis, MongoDB, and Dokploy
+
+services:
+  # Include NATS service
+  nats:
+    extends:
+      file: ./nats/docker-compose.yml
+      service: nats
+    networks:
+      - services-network
+      - dokploy-network
+
+  # Include Redis service
+  redis:
+    extends:
+      file: ./redis/docker-compose.yml
+      service: redis
+    networks:
+      - services-network
+      - dokploy-network
+
+  # Include MongoDB services
+  mongo1:
+    extends:
+      file: ./mongodb/docker-compose.yml
+      service: mongo1
+    networks:
+      - services-network
+      - dokploy-network
+
+  mongo2:
+    extends:
+      file: ./mongodb/docker-compose.yml
+      service: mongo2
+    networks:
+      - services-network
+      - dokploy-network
+
+  mongo3:
+    extends:
+      file: ./mongodb/docker-compose.yml
+      service: mongo3
+    networks:
+      - services-network
+      - dokploy-network
+
+  # Include Dokploy services
+  dokploy:
+    extends:
+      file: ./dokploy/docker-compose.yml
+      service: dokploy
+    depends_on:
+      - nats
+      - redis
+      - mongo1
+      - mongo2
+      - mongo3
+    networks:
+      - services-network
+      - dokploy-network
+
+  dokploy-db:
+    extends:
+      file: ./dokploy/docker-compose.yml
+      service: dokploy-db
+    networks:
+      - dokploy-network
+
+  dokploy-redis:
+    extends:
+      file: ./dokploy/docker-compose.yml
+      service: dokploy-redis
+    networks:
+      - dokploy-network
+
+networks:
+  services-network:
+    driver: bridge
+  dokploy-network:
+    driver: bridge
+
+volumes:
+  # NATS volumes
+  nats-data:
+    external: true
+  
+  # Redis volumes
+  redis-data:
+    external: true
+  
+  # MongoDB volumes
+  mongo1-data:
+    external: true
+  mongo2-data:
+    external: true
+  mongo3-data:
+    external: true
+  
+  # Dokploy volumes
+  dokploy-data:
+    external: true
+  traefik-data:
+    external: true
+  postgres-data:
+    external: true
+  dokploy-redis-data:
+    external: true
