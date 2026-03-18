@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  nocodb:
+    container_name: nocodb-postgres
+    image: nocodb/nocodb:${NOCODB_VERSION}
+    restart: always
+    ports:
+      - "${PORT}:8080"
+    environment:
+      - NC_DB=${NC_DB}
+      - NC_AUTH_JWT_SECRET=${NC_AUTH_JWT_SECRET}
+    volumes:
+      - ./data:/usr/app/data/

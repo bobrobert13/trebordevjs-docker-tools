@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  nats:
+    image: nats:2.10-alpine
+    container_name: nats-server
+    ports:
+      - "4222:4222"  # Client port
+      - "8222:8222"  # HTTP monitoring port
+      - "6222:6222"  # Cluster port
+    command: [
+      "--name", "nats-main",
+      "--http_port", "8222",
+      "--port", "4222",
+      "--cluster_name", "nats-cluster",
+      "--cluster", "nats://0.0.0.0:6222",
+      "--routes", "",
+      "--max_payload", "8MB",
+      "--max_pending", "64MB"
+    ]
+    volumes:
+      - ./config/nats-server.conf:/etc/nats/nats-server.conf:ro
+      - nats-data:/data
+    restart: unless-stopped
+    networks:
+      - services-network
+
+volumes:
+  nats-data:
+    driver: local
+
+networks:
+  services-network:
+    driver: bridge

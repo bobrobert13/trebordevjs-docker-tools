@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  nats:
+    extends:
+      file: ./nats/docker-compose.yml
+      service: nats
+
+  redis:
+    extends:
+      file: ./redis/docker-compose.yml
+      service: redis
+
+  mongo1:
+    extends:
+      file: ./mongodb/docker-compose.yml
+      service: mongo1
+
+  mongo2:
+    extends:
+      file: ./mongodb/docker-compose.yml
+      service: mongo2
+
+  mongo3:
+    extends:
+      file: ./mongodb/docker-compose.yml
+      service: mongo3
+
+networks:
+  services-network:
+    external: true

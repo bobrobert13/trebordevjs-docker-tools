@@ -1,0 +1,78 @@
+# Traefik Configuration for Dokploy
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+api:
+  dashboard: true
+  debug: false
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+  traefik:
+    address: ":8080"
+
+providers:
+  docker:
+    exposedByDefault: false
+    network: "dokploy-network"
+  file:
+    directory: "/app/traefik/dynamic"
+    watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "${TRAEFIK_ACME_EMAIL:-admin@example.com}"
+      storage: "/app/traefik/acme.json"
+      httpChallenge:
+        entryPoint: web
+  letsencrypt-dns:
+    acme:
+      email: "${TRAEFIK_ACME_EMAIL:-admin@example.com}"
+      storage: "/app/traefik/acme-dns.json"
+      dnsChallenge:
+        provider: cloudflare
+        delayBeforeCheck: 0
+
+# Security headers
+http:
+  middlewares:
+    security-headers:
+      headers:
+        browserXssFilter: true
+        contentTypeNosniff: true
+        frameDeny: true
+        sslRedirect: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        customFrameOptionsValue: "SAMEORIGIN"
+    compress:
+      compress: true
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+
+# Logging
+log:
+  level: "INFO"
+  format: "json"
+
+accessLog:
+  format: "json"
+  filters:
+    statusCodes:
+      - "200-299"
+      - "400-599"
+    retryAttempts: true
+    minDuration: "10ms"

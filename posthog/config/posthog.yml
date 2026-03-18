@@ -1,0 +1,124 @@
+# PostHog Configuration File
+# This file contains additional configuration for PostHog
+
+# Django Settings
+DEBUG = False
+ALLOWED_HOSTS = ['*']
+SECURE_COOKIES = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+# Database Settings
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('POSTHOG_DB_NAME', 'posthog'),
+        'USER': os.environ.get('POSTHOG_DB_USER', 'posthog'),
+        'PASSWORD': os.environ.get('POSTHOG_DB_PASSWORD', 'posthog123'),
+        'HOST': os.environ.get('POSTHOG_DB_HOST', 'posthog-db'),
+        'PORT': os.environ.get('POSTHOG_DB_PORT', '5432'),
+        'CONN_MAX_AGE': 60,
+        'OPTIONS': {
+            'connect_timeout': 10,
+        },
+    }
+}
+
+# Redis Settings
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://posthog-redis:6379/0')
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': REDIS_URL,
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'PARSER_CLASS': 'redis.connection.HiredisParser',
+            'CONNECTION_POOL_CLASS': 'redis.BlockingConnectionPool',
+            'CONNECTION_POOL_CLASS_KWARGS': {
+                'max_connections': 50,
+                'timeout': 20,
+            },
+            'MAX_CONNECTIONS': 1000,
+            'PICKLE_VERSION': -1,
+        },
+    }
+}
+
+# ClickHouse Settings
+CLICKHOUSE_HOST = os.environ.get('CLICKHOUSE_HOST', 'clickhouse')
+CLICKHOUSE_DATABASE = os.environ.get('CLICKHOUSE_DATABASE', 'posthog')
+CLICKHOUSE_USER = os.environ.get('CLICKHOUSE_USER', 'default')
+CLICKHOUSE_PASSWORD = os.environ.get('CLICKHOUSE_PASSWORD', '')
+CLICKHOUSE_CLUSTER = os.environ.get('CLICKHOUSE_CLUSTER', 'posthog')
+
+# Kafka Settings
+KAFKA_URL = os.environ.get('KAFKA_URL', 'kafka:9092')
+KAFKA_HOSTS = os.environ.get('KAFKA_HOSTS', 'kafka:9092')
+
+# Object Storage Settings
+OBJECT_STORAGE_ENABLED = os.environ.get('OBJECT_STORAGE_ENABLED', 'true').lower() == 'true'
+OBJECT_STORAGE_ENDPOINT = os.environ.get('OBJECT_STORAGE_ENDPOINT', 'http://minio:9000')
+OBJECT_STORAGE_ACCESS_KEY_ID = os.environ.get('OBJECT_STORAGE_ACCESS_KEY_ID', 'minioadmin')
+OBJECT_STORAGE_SECRET_ACCESS_KEY = os.environ.get('OBJECT_STORAGE_SECRET_ACCESS_KEY', 'minioadmin')
+
+# Security Settings
+SECURE_SSL_REDIRECT = True
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+X_FRAME_OPTIONS = 'DENY'
+
+# CORS Settings
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = []
+CORS_ALLOW_CREDENTIALS = True
+
+# Logging Settings
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'posthog': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
+# Feature Flags
+AUTO_START_ASYNC_MIGRATIONS = True
+ASYNC_MIGRATIONS_AUTO_CONTINUE = True
+ASYNC_MIGRATIONS_DISABLE_AUTO_RUN = False
+
+# Rate Limiting
+RATE_LIMIT_ENABLED = True
+RATE_LIMIT_BURST = 100
+RATE_LIMIT_RATE = 10
+
+# Monitoring
+CAPTURE_INTERNAL_METRICS = False
+CAPTURE_TIME_TO_SEE_DATA = False

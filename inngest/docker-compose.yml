@@ -1,0 +1,162 @@
+version: '3.8'
+
+services:
+  inngest:
+    image: inngest/inngest:${INNGEST_VERSION:-latest}
+    container_name: inngest-server
+    command: >
+      sh -c "
+        if [ '${INNGEST_ENV:-dev}' = 'dev' ]; then
+          inngest dev -u ${INNGEST_WORKER_URL:-http://localhost:3000/api/inngest} --port ${INNGEST_PORT:-8288}
+        else
+          inngest start
+        fi
+      "
+    ports:
+      - "${INNGEST_PORT:-8288}:8288"  # Main API and Dashboard
+      - "${INNGEST_CONNECT_PORT:-8289}:8289"  # Connect WebSocket gateway
+    environment:
+      # Core Configuration
+      - INNGEST_ENV=${INNGEST_ENV:-dev}
+      - INNGEST_PORT=${INNGEST_PORT:-8288}
+      - INNGEST_WORKER_URL=${INNGEST_WORKER_URL:-http://localhost:3000/api/inngest}
+      
+      # Security Keys (Required for production)
+      - INNGEST_EVENT_KEY=${INNGEST_EVENT_KEY:-}
+      - INNGEST_SIGNING_KEY=${INNGEST_SIGNING_KEY:-}
+      - INNGEST_MASTER_KEY=${INNGEST_MASTER_KEY:-}
+      
+      # Database Configuration
+      - INNGEST_POSTGRES_URI=${INNGEST_POSTGRES_URI:-postgresql://inngest:inngest@inngest-db:5432/inngest?sslmode=disable}
+      - INNGEST_REDIS_URI=${INNGEST_REDIS_URI:-redis://inngest-redis:6379}
+      
+      # Advanced Configuration
+      - INNGEST_QUEUE_WORKERS=${INNGEST_QUEUE_WORKERS:-100}
+      - INNGEST_EXECUTION_BATCH_SIZE=${INNGEST_EXECUTION_BATCH_SIZE:-100}
+      - INNGEST_MAX_CONCURRENT_EXECUTIONS=${INNGEST_MAX_CONCURRENT_EXECUTIONS:-1000}
+      - INNGEST_LOG_LEVEL=${INNGEST_LOG_LEVEL:-info}
+      
+      # Development Mode
+      - INNGEST_DEV=${INNGEST_DEV:-1}
+      - INNGEST_UI_ENABLED=${INNGEST_UI_ENABLED:-true}
+      
+      # Event Delivery
+      - INNGEST_EVENT_API_URL=${INNGEST_EVENT_API_URL:-}
+      - INNGEST_EVENT_KEY_FALLBACK=${INNGEST_EVENT_KEY_FALLBACK:-}
+      
+      # Metrics and Monitoring
+      - INNGEST_METRICS_ENABLED=${INNGEST_METRICS_ENABLED:-true}
+      - INNGEST_TRACING_ENABLED=${INNGEST_TRACING_ENABLED:-false}
+      - INNGEST_SENTRY_DSN=${INNGEST_SENTRY_DSN:-}
+      
+      # Rate Limiting
+      - INNGEST_RATE_LIMIT_MAX=${INNGEST_RATE_LIMIT_MAX:-1000}
+      - INNGEST_RATE_LIMIT_REFILL=${INNGEST_RATE_LIMIT_REFILL:-100}
+      - INNGEST_RATE_LIMIT_INTERVAL=${INNGEST_RATE_LIMIT_INTERVAL:-1s}
+    volumes:
+      - inngest-data:/data
+      - ./scripts:/docker-entrypoint-initdb.d:ro
+    depends_on:
+      inngest-db:
+        condition: service_healthy
+      inngest-redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - services-network
+      - inngest-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8288/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.inngest.rule=Host(`${INNGEST_DOMAIN:-inngest.localhost}`)"
+      - "traefik.http.routers.inngest.entrypoints=web"
+      - "traefik.http.services.inngest.loadbalancer.server.port=8288"
+      - "traefik.http.routers.inngest-secure.rule=Host(`${INNGEST_DOMAIN:-inngest.localhost}`)"
+      - "traefik.http.routers.inngest-secure.entrypoints=websecure"
+      - "traefik.http.routers.inngest-secure.tls=true"
+      - "traefik.http.routers.inngest-secure.tls.certresolver=letsencrypt"
+
+  # PostgreSQL for Inngest
+  inngest-db:
+    image: postgres:${POSTGRES_VERSION:-15-alpine}
+    container_name: inngest-db
+    ports:
+      - "${INNGEST_DB_PORT:-5433}:5432"
+    environment:
+      - POSTGRES_DB=${INNGEST_DB_NAME:-inngest}
+      - POSTGRES_USER=${INNGEST_DB_USER:-inngest}
+      - POSTGRES_PASSWORD=${INNGEST_DB_PASSWORD:-inngest123}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - inngest-db-data:/var/lib/postgresql/data
+      - ./scripts/init-inngest-db.sql:/docker-entrypoint-initdb.d/init-inngest-db.sql:ro
+    restart: unless-stopped
+    networks:
+      - inngest-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${INNGEST_DB_USER:-inngest} -d ${INNGEST_DB_NAME:-inngest}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Inngest
+  inngest-redis:
+    image: redis:${REDIS_VERSION:-7-alpine}
+    container_name: inngest-redis
+    ports:
+      - "${INNGEST_REDIS_PORT:-6380}:6379"
+    command: redis-server /etc/redis/redis.conf
+    volumes:
+      - inngest-redis-data:/data
+      - ./config/redis.conf:/etc/redis/redis.conf:ro
+    restart: unless-stopped
+    networks:
+      - inngest-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Example Worker Application (Optional)
+  inngest-worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: inngest-worker
+    ports:
+      - "${WORKER_PORT:-3000}:3000"
+    environment:
+      - INNGEST_SERVE_HOST=${WORKER_HOST:-0.0.0.0}
+      - INNGEST_SERVE_PORT=${WORKER_PORT:-3000}
+      - INNGEST_SIGNING_KEY=${INNGEST_SIGNING_KEY:-}
+      - INNGEST_EVENT_KEY=${INNGEST_EVENT_KEY:-}
+      - INNGEST_BASE_URL=${INNGEST_BASE_URL:-http://inngest:8288}
+      - NODE_ENV=${WORKER_ENV:-development}
+    depends_on:
+      - inngest
+    restart: unless-stopped
+    networks:
+      - inngest-network
+    profiles:
+      - with-worker
+
+volumes:
+  inngest-data:
+    driver: local
+  inngest-db-data:
+    driver: local
+  inngest-redis-data:
+    driver: local
+
+networks:
+  services-network:
+    external: true
+  inngest-network:
+    driver: bridge
+    name: inngest-network

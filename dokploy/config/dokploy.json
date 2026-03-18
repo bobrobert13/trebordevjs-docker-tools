@@ -1,0 +1,79 @@
+# Dokploy Application Configuration
+{
+  "app": {
+    "name": "Dokploy",
+    "version": "1.0.0",
+    "environment": "${NODE_ENV:-production}",
+    "host": "${DOKPLOY_HOST:-localhost}",
+    "port": "${DOKPLOY_PORT:-3000}",
+    "ssl": {
+      "enabled": "${TRAEFIK_SSL_ENABLED:-true}",
+      "certResolver": "letsencrypt"
+    }
+  },
+  "database": {
+    "url": "${DATABASE_URL:-postgresql://postgres:dokploy123@dokploy-db:5432/dokploy?schema=public}",
+    "ssl": false,
+    "pool": {
+      "min": 2,
+      "max": 10
+    }
+  },
+  "redis": {
+    "url": "${REDIS_URL:-redis://dokploy-redis:6379}",
+    "db": 0,
+    "password": null
+  },
+  "security": {
+    "jwt": {
+      "secret": "${JWT_SECRET:-your-super-secret-jwt-key}",
+      "expiresIn": "7d"
+    },
+    "encryption": {
+      "key": "${ENCRYPTION_KEY:-your-32-character-encryption-key}"
+    },
+    "cors": {
+      "origin": ["*"],
+      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH"],
+      "allowedHeaders": ["Content-Type", "Authorization"]
+    }
+  },
+  "docker": {
+    "network": "${DOCKER_NETWORK:-dokploy-network}",
+    "socket": "/var/run/docker.sock",
+    "registry": {
+      "url": "",
+      "username": "",
+      "password": ""
+    }
+  },
+  "monitoring": {
+    "enabled": true,
+    "interval": 30,
+    "retention": 7
+  },
+  "notifications": {
+    "email": {
+      "enabled": false,
+      "smtp": {
+        "host": "",
+        "port": 587,
+        "secure": true,
+        "auth": {
+          "user": "",
+          "pass": ""
+        }
+      }
+    },
+    "webhook": {
+      "enabled": false,
+      "url": ""
+    }
+  },
+  "backup": {
+    "enabled": true,
+    "schedule": "0 2 * * *",
+    "retention": 30,
+    "destination": "local"
+  }
+}

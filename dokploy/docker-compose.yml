@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  dokploy:
+    image: dokploy/dokploy:latest
+    container_name: dokploy
+    ports:
+      - "${DOKPLOY_PORT:-3000}:3000"
+      - "${TRAEFIK_PORT:-80}:80"
+      - "${TRAEFIK_SSL_PORT:-443}:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - dokploy-data:/app/dokploy
+      - traefik-data:/app/traefik
+      - ./config/traefik.yml:/app/traefik/traefik.yml:ro
+      - ./config/dokploy.json:/app/dokploy/dokploy.json:ro
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD:-dokploy123}@dokploy-db:5432/dokploy?schema=public}
+      - REDIS_URL=${REDIS_URL:-redis://dokploy-redis:6379}
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-your-32-character-encryption-key}
+      - DOKPLOY_HOST=${DOKPLOY_HOST:-localhost}
+      - DOKPLOY_PORT=${DOKPLOY_PORT:-3000}
+      - TRAEFIK_SSL_ENABLED=${TRAEFIK_SSL_ENABLED:-true}
+      - TRAEFIK_ACME_EMAIL=${TRAEFIK_ACME_EMAIL:-admin@example.com}
+      - DOCKER_NETWORK=${DOCKER_NETWORK:-dokploy-network}
+    depends_on:
+      - dokploy-db
+      - dokploy-redis
+    restart: unless-stopped
+    networks:
+      - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dokploy.rule=Host(`${DOKPLOY_HOST:-localhost}`)"
+      - "traefik.http.routers.dokploy.entrypoints=web"
+      - "traefik.http.services.dokploy.loadbalancer.server.port=3000"
+      - "traefik.http.routers.dokploy-secure.rule=Host(`${DOKPLOY_HOST:-localhost}`)"
+      - "traefik.http.routers.dokploy-secure.entrypoints=websecure"
+      - "traefik.http.routers.dokploy-secure.tls=true"
+      - "traefik.http.routers.dokploy-secure.tls.certresolver=letsencrypt"
+
+  dokploy-db:
+    image: postgres:16-alpine
+    container_name: dokploy-db
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-dokploy}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-dokploy123}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    restart: unless-stopped
+    networks:
+      - dokploy-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-dokploy}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dokploy-redis:
+    image: redis:7-alpine
+    container_name: dokploy-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server /etc/redis/redis.conf
+    volumes:
+      - redis-data:/data
+      - ./config/redis.conf:/etc/redis/redis.conf:ro
+    restart: unless-stopped
+    networks:
+      - dokploy-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  dokploy-data:
+    driver: local
+  traefik-data:
+    driver: local
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  dokploy-network:
+    driver: bridge
+    name: ${DOCKER_NETWORK:-dokploy-network}
